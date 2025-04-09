@@ -1,20 +1,18 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-import joblib
-import numpy as np
+from typing import List
 
-# Charger le modèle
-model = joblib.load("decision_tree_model.pkl")
+app = FastAPI()
 
-# Initialiser l'API
-app = FastAPI(title="API Prédiction avec Decision Tree")
-
-# Schéma des données attendues
-class InputData(BaseModel):
-    features: list  # Exemple : [3.2, 1.5, 0.8, ...]
+class FeatureInput(BaseModel):
+    features: List[List[float]]  # <== liste de vecteurs
 
 @app.post("/predict")
-def predict(data: InputData):
-    X = np.array(data.features).reshape(1, -1)
-    prediction = model.predict(X)[0]
-    return {"prediction": int(prediction)}
+def predict(data: FeatureInput):
+    predictions = []
+    for row in data.features:
+        # 🔁 ton modèle ici
+        pred = 1 if row[0] > 5 else 0
+        predictions.append(pred)
+    return {"predictions": predictions}
+
