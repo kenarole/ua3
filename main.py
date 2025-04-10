@@ -1,38 +1,69 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
-import numpy as np
+import pandas as pd
 
-# Charger le modèle
-model = joblib.load("decision_tree_model.pkl")
+# Chargement du modèle entraîné
+model = joblib.load("fraud_detection_pipeline.pkl")
 
-# Charger le scaler
-scaler = joblib.load("scaler.pkl")
+app = FastAPI(title="Fraud Detection API")
 
+# Schéma d'entrée
+class Transaction(BaseModel):
+    step: int
+    type: str
+    amount: float
+    nameOrig: str
+    oldbalanceOrg: float
+    newbalanceOrig: float
+    nameDest: str
+    oldbalanceDest: float
+    newbalanceDest: float
 
-# Initialiser l'API
-app = FastAPI(title="API Prédiction avec Decision Tree")
+# Prétraitement
+def preprocess_transaction(row):
+    row["transactionType"] = row["nameOrig"][0] + row["nameDest"][0]
+    row["net_sender"] = row["oldbalanceOrg"] - row["newbalanceOrig"]
+    row["net_receiver"] = row["newbalanceDest"] - row["oldbalanceDest"]
 
-# Schéma des données attendues
-class InputData(BaseModel):
-    features: list  # Exemple : [3.2, 1.5, 0.8, ...]
+    return {
+        "amount": row["amount"],
+        "oldbalanceOrg": row["oldbalanceOrg"],
+        "newbalanceOrig": row["newbalanceOrig"],
+        "oldbalanceDest": row["oldbalanceDest"],
+        "newbalanceDest": row["newbalanceDest"],
+        "net_sender": row["net_sender"],
+        "net_receiver": row["net_receiver"],
+        "transactionType": row["transactionType"],
+        "type": row["type"]
+    }
 
-# @app.post("/predict")
-# def predict(data: InputData):
-#     X = np.array(data.features).reshape(1, -1)
-#     prediction = model.predict(X)[0]
-#     return {"prediction": int(prediction)}
+# Endpoint de prédiction
+@app.post("/predict")
+def predict_fraud(transaction: Transaction):
+    row = transaction.dict()
+    row_processed = preprocess_transaction(row)
 
-# Message d'accueil
+    # Convertir en DataFrame avec ordre des colonnes
+    input_df = pd.DataFrame([row_processed])[[
+        'amount', 'oldbalanceOrg', 'newbalanceOrig',
+        'oldbalanceDest', 'newbalanceDest',
+        'net_sender', 'net_receiver',
+        'transactionType', 'type'
+    ]]
+
+    prediction = model.predict(input_df)[0]
+    proba = model.predict_proba(input_df)[0][1]
+
+    message = "Cette transaction est frauduleuse 🚨" if prediction == 1 else "Transaction légitime ✅"
+
+    return {
+        "isFraud": int(prediction),
+        "fraudProbability": round(float(proba), 4),
+        "message": message
+    }
+
+# Accueil
 @app.get("/")
 def read_root():
-    return {"message": "Bienvenue sur l'API de prédiction utilisant un modèle Decision Tree !"}
-
-
-@app.post("/predict")
-def predict(data: InputData):
-    X = np.array(data.features).reshape(1, -1)
-    X_scaled = scaler.transform(X)
-    prediction = model.predict(X_scaled)[0]
-    return {"prediction": int(prediction)}
-
+    return {"message": "Bienvenue sur l'API de détection de fraude utilisant un modèle Decision Tree !"}
