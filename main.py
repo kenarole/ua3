@@ -23,6 +23,11 @@ class InputData(BaseModel):
 #     prediction = model.predict(X)[0]
 #     return {"prediction": int(prediction)}
 
+# Message d'accueil
+@app.get("/")
+def read_root():
+    return {"message": "Bienvenue sur l'API de prédiction utilisant un modèle Decision Tree !"}
+
 
 @app.post("/predict")
 def predict(data: InputData):
