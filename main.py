@@ -6,7 +6,9 @@ import pandas as pd
 # Chargement du modèle entraîné
 model = joblib.load("fraud_detection_pipeline.pkl")
 
-app = FastAPI(title="Fraud Detection API")
+app = FastAPI(title="API DE DETECTION DE FRAUDE",
+            description="API pour la détection de fraude sur des transactions financières utilisant un modèle Decision Tree.",
+            version="1.0.0")
 
 # Schéma d'entrée
 class Transaction(BaseModel):
